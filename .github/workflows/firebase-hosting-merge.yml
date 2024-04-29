@@ -12,6 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: npm ci && npm run build
+      - run: cd functions && npm ci
       - name: Deploy Firebase Functions
         uses: Accelery/firebase-deploy-functions-action@v2
         env:
