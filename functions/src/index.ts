@@ -10,10 +10,15 @@
 import { DocumentData, DocumentSnapshot } from "firebase-admin/firestore";
 import { error, log, warn } from "firebase-functions/logger";
 import { onRequest } from "firebase-functions/v2/https";
+import { onTaskDispatched } from "firebase-functions/v2/tasks";
 import { fallbackImage } from "./constants";
 import { db } from "./firebase";
 import { isDBPage } from "./types";
-import { pipeFromFile, requestURLPathToPageId } from "./utils";
+import {
+  enqueuePageScreenshotTask,
+  pipeFromFile,
+  requestURLPathToPageId,
+} from "./utils";
 
 export const image = onRequest(async (req, res) => {
   const urlPath = req.url;
@@ -51,6 +56,8 @@ export const image = onRequest(async (req, res) => {
     error(
       `Could not find corresponding document in database for pageId=${pageId}`
     );
+
+    enqueuePageScreenshotTask(pageId);
     return pipeFromFile(res.status(500), fallbackImage[404]);
   }
 
@@ -84,3 +91,18 @@ export const image = onRequest(async (req, res) => {
 //   logger.info("Hello logs!", {structuredData: true});
 //   response.send("Hello from Firebase!");
 // });
+
+export const screenshotQueue = onTaskDispatched(
+  {
+    retryConfig: {
+      maxAttempts: 4,
+      minBackoffSeconds: 60,
+    },
+    rateLimits: {
+      maxConcurrentDispatches: 4,
+    },
+  },
+  async (req) => {
+    log("Executed action in the screenshot queue!", req.data);
+  }
+);
